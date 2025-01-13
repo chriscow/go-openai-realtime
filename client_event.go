@@ -1,6 +1,9 @@
 package openairt
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 // ClientEventType is the type of client event. See https://platform.openai.com/docs/guides/realtime/client-events
 type ClientEventType string
@@ -299,4 +302,46 @@ func (m ResponseCancelEvent) MarshalJSON() ([]byte, error) {
 // MarshalClientEvent marshals the client event to JSON.
 func MarshalClientEvent(event ClientEvent) ([]byte, error) {
 	return json.Marshal(event)
+}
+
+func UnmarshalClientEvent(data []byte) (ClientEvent, error) {
+	var eventType struct {
+		Type ClientEventType `json:"type"`
+	}
+	err := json.Unmarshal(data, &eventType)
+	if err != nil {
+		return nil, err
+	}
+	switch eventType.Type {
+	case ClientEventTypeSessionUpdate:
+		return unmarshalClientEvent[SessionUpdateEvent](data)
+	case ClientEventTypeInputAudioBufferAppend:
+		return unmarshalClientEvent[InputAudioBufferAppendEvent](data)
+	case ClientEventTypeInputAudioBufferCommit:
+		return unmarshalClientEvent[InputAudioBufferCommitEvent](data)
+	case ClientEventTypeInputAudioBufferClear:
+		return unmarshalClientEvent[InputAudioBufferClearEvent](data)
+	case ClientEventTypeConversationItemCreate:
+		return unmarshalClientEvent[ConversationItemCreateEvent](data)
+	case ClientEventTypeConversationItemTruncate:
+		return unmarshalClientEvent[ConversationItemTruncateEvent](data)
+	case ClientEventTypeConversationItemDelete:
+		return unmarshalClientEvent[ConversationItemDeleteEvent](data)
+	case ClientEventTypeResponseCreate:
+		return unmarshalClientEvent[ResponseCreateEvent](data)
+	case ClientEventTypeResponseCancel:
+		return unmarshalClientEvent[ResponseCancelEvent](data)
+	default:
+		// This should never happen.
+		return nil, fmt.Errorf("unknown client event type: %s", eventType.Type)
+	}
+}
+
+func unmarshalClientEvent[T ClientEvent](data []byte) (T, error) {
+	var t T
+	err := json.Unmarshal(data, &t)
+	if err != nil {
+		return t, err
+	}
+	return t, nil
 }
